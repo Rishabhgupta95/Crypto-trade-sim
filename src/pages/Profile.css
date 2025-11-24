@@ -1,0 +1,171 @@
+.profile {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  color: white;
+  padding-bottom: 100px;
+}
+
+.profile-header {
+  margin-bottom: 24px;
+}
+
+.profile-header h1 {
+  font-size: 32px;
+}
+
+.profile-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.profile-card {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  padding: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  text-align: center;
+}
+
+.profile-avatar {
+  margin-bottom: 20px;
+}
+
+.avatar-circle {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  font-weight: 700;
+  margin: 0 auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.profile-info h2 {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.profile-email {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.profile-badge {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.profile-badge.verified {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+}
+
+.profile-section {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.profile-section h3 {
+  font-size: 20px;
+  margin-bottom: 20px;
+  font-weight: 600;
+}
+
+.info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+}
+
+.info-label {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.info-value {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-item {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.settings-item:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateX(4px);
+}
+
+.settings-icon {
+  font-size: 20px;
+  margin-right: 16px;
+}
+
+.settings-label {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.settings-arrow {
+  font-size: 24px;
+  opacity: 0.6;
+}
+
+.profile-actions {
+  margin-top: 8px;
+}
+
+.logout-button {
+  width: 100%;
+  padding: 16px;
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.logout-button:hover {
+  background: rgba(239, 68, 68, 0.3);
+  transform: translateY(-2px);
+}
+
