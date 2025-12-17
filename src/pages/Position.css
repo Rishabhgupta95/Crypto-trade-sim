@@ -126,6 +126,16 @@
   width: fit-content;
 }
 
+.clickable-crypto {
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.clickable-crypto:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
 .position-type {
   padding: 6px 12px;
   border-radius: 20px;
@@ -208,6 +218,23 @@
 .position-button.close:hover {
   background: rgba(239, 68, 68, 0.3);
   transform: translateY(-2px);
+}
+
+.sell-button {
+  padding: 8px 16px;
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.sell-button:hover {
+  background: rgba(239, 68, 68, 0.3);
+  transform: translateY(-1px);
 }
 
 .loading-spinner {

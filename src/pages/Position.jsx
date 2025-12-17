@@ -1,87 +1,43 @@
-import { useState, useEffect } from 'react'
-import { fetchMultipleCrypto } from '../services/cryptoApi'
-import { getPortfolio } from '../services/chipsService'
+import { useUser } from '../contexts/UserContext'
+import { usePortfolioValues } from '../hooks/usePortfolioValues'
+import { useModal } from '../contexts/ModalContext'
 import './Position.css'
 
 function Position() {
-  const [loading, setLoading] = useState(true)
-  const [positions, setPositions] = useState([])
-  const [totalPnl, setTotalPnl] = useState(0)
-  const [totalPnlPercentage, setTotalPnlPercentage] = useState(0)
-  const [apiError, setApiError] = useState(null)
+  const { openModal } = useModal()
+  const { portfolio } = useUser()
 
-  useEffect(() => {
-    const loadPositions = async () => {
-      try {
-        setLoading(true)
-        setApiError(null)
-        const portfolio = getPortfolio()
-        
-        if (portfolio.length === 0) {
-          setPositions([])
-          setTotalPnl(0)
-          setTotalPnlPercentage(0)
-          setLoading(false)
-          return
-        }
+  const {
+    holdings: positions,
+    totalProfit: totalPnl,
+    totalProfitPercent: totalPnlPercentage,
+    loading,
+    error: apiError
+  } = usePortfolioValues(portfolio)
 
-        const coinIds = portfolio.map((p) => p.coinId)
-        const cryptoData = await fetchMultipleCrypto(coinIds)
+  const handleSellClick = (position) => {
+    openModal({
+      id: position.id,
+      name: position.name,
+      symbol: position.symbol,
+      price: position.price,
+      change: position.change24h,
+      image: position.image,
+    }, 'sell')
+  }
 
-        const updatedPositions = cryptoData.map((crypto) => {
-          const holding = portfolio.find((p) => p.coinId === crypto.id)
-          if (!holding) return null
-          
-          const currentPrice = crypto.price
-          const entryPrice = holding.entryPrice
-          const amount = holding.amount
+  const handleCryptoClick = (position) => {
+    openModal({
+      id: position.id,
+      name: position.name,
+      symbol: position.symbol,
+      price: position.price,
+      change: position.change24h,
+      image: position.image,
+    }, 'buy')
+  }
 
-          // All positions are Long (buy and hold)
-          const pnl = (currentPrice - entryPrice) * amount
-          const pnlPercentage = ((currentPrice - entryPrice) / entryPrice) * 100
-
-          return {
-            id: holding.coinId,
-            crypto: crypto.name,
-            symbol: holding.symbol,
-            type: 'Long',
-            amount: amount,
-            entryPrice: entryPrice,
-            currentPrice: currentPrice,
-            pnl: pnl,
-            pnlPercentage: pnlPercentage,
-            image: crypto.image,
-          }
-        }).filter(Boolean)
-
-        setPositions(updatedPositions)
-
-        // Calculate total P&L
-        const totalPnlAmount = updatedPositions.reduce((sum, pos) => sum + pos.pnl, 0)
-        const totalEntryValue = updatedPositions.reduce(
-          (sum, pos) => sum + pos.entryPrice * pos.amount,
-          0
-        )
-        const totalPnlPercent = totalEntryValue > 0 ? (totalPnlAmount / totalEntryValue) * 100 : 0
-
-        setTotalPnl(totalPnlAmount)
-        setTotalPnlPercentage(totalPnlPercent)
-      } catch (error) {
-        console.error('Error loading positions:', error)
-        setApiError('Unable to refresh live prices right now. Showing cached values.')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadPositions()
-    
-    // Refresh data every 10 seconds to stay within API limits
-    const interval = setInterval(loadPositions, 10000)
-    return () => clearInterval(interval)
-  }, [])
-
-  if (loading) {
+  if (loading && positions.length === 0) {
     return (
       <div className="position">
         <div className="position-header">
@@ -129,15 +85,25 @@ function Position() {
               <div className="position-card-header">
                 <div className="position-crypto">
                   {position.image && (
-                    <img src={position.image} alt={position.crypto} className="position-image" />
+                    <img src={position.image} alt={position.name} className="position-image" />
                   )}
                   <div>
-                    <strong>{position.crypto}</strong>
-                    <span className="position-symbol">{position.symbol}</span>
+                    <strong
+                      className="clickable-crypto"
+                      onClick={() => handleCryptoClick(position)}
+                    >
+                      {position.name}
+                    </strong>
+                    <span
+                      className="position-symbol clickable-crypto"
+                      onClick={() => handleCryptoClick(position)}
+                    >
+                      {position.symbol}
+                    </span>
                   </div>
                 </div>
-                <div className={`position-type ${position.type.toLowerCase()}`}>
-                  {position.type}
+                <div className="position-type long">
+                  Long
                 </div>
               </div>
               <div className="position-details">
@@ -151,15 +117,20 @@ function Position() {
                 </div>
                 <div className="position-row">
                   <span className="position-label">Current Price:</span>
-                  <span className="position-value">${position.currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="position-value">${position.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div className="position-row pnl-row">
                   <span className="position-label">P&L:</span>
-                  <span className={`position-value pnl ${position.pnl >= 0 ? 'positive' : 'negative'}`}>
-                    ${position.pnl >= 0 ? '+' : ''}{position.pnl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 
-                    ({position.pnl >= 0 ? '+' : ''}{position.pnlPercentage.toFixed(2)}%)
+                  <span className={`position-value pnl ${position.profit >= 0 ? 'positive' : 'negative'}`}>
+                    ${position.profit >= 0 ? '+' : ''}{position.profit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    ({position.profit >= 0 ? '+' : ''}{position.profitPercent.toFixed(2)}%)
                   </span>
                 </div>
+              </div>
+              <div className="position-actions">
+                <button className="sell-button" onClick={() => handleSellClick(position)}>
+                  Sell
+                </button>
               </div>
             </div>
           ))

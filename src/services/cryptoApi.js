@@ -54,8 +54,8 @@ const DEFAULT_COINS = [
 
 const CG_API_KEY = import.meta.env.VITE_COINGECKO_API_KEY
 const MARKET_CACHE_TTL = 60 * 1000 // 1 minute
-const PRICE_CACHE_TTL = 5 * 1000 // 5 seconds
-const REQUEST_TIMEOUT = 8000
+const PRICE_CACHE_TTL = 30 * 1000 // 30 seconds
+const REQUEST_TIMEOUT = 10000
 
 let cachedMarketData = []
 let lastMarketFetch = 0
@@ -130,6 +130,8 @@ const mapCoin = (coin) => ({
   marketCap: coin.market_cap ?? coin.marketCap ?? 0,
   volume: coin.total_volume ?? coin.volume ?? 0,
   image: coin.image,
+  high24h: coin.high_24h ?? 0,
+  low24h: coin.low_24h ?? 0,
 })
 
 const ensureCachedMarketData = (data) => {
@@ -219,7 +221,7 @@ export const fetchMultipleCrypto = async (coinIds = []) => {
     for (const chunk of chunks) {
       const ids = chunk.join(',')
       const data = await safeFetch(
-        `/coins/markets?vs_currency=usd&ids=${ids}&order=market_cap_desc&sparkline=false&price_change_percentage=24h`
+        `/coins/markets?vs_currency=usd&ids=${ids}&order=market_cap_desc&sparkline=false&price_change_percentage=24h&include_24hr_change=true`
       )
 
       data.map(mapCoin).forEach((coin) => {
@@ -319,7 +321,7 @@ export const fetchLivePrices = async (coinIds = []) => {
       })
 
       // small delay to avoid hitting rate limit
-      await sleep(2500)
+      await sleep(5000)
     }
 
     cachedPrices = {
@@ -362,5 +364,28 @@ export const formatNumber = (num) => {
   if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M'
   if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K'
   return num.toFixed(2)
+}
+
+export const fetchNews = async () => {
+  try {
+    // Using CryptoCompare news API (free tier)
+    const response = await fetch('https://min-api.cryptocompare.com/data/v2/news/?lang=EN&limit=10')
+    const data = await response.json()
+    
+    if (data.Data) {
+      return data.Data.map((article) => ({
+        id: article.id,
+        title: article.title,
+        url: article.url,
+        source: article.source,
+        published_on: article.published_on,
+        imageurl: article.imageurl,
+      }))
+    }
+    return []
+  } catch (error) {
+    console.error('Error fetching news:', error)
+    return []
+  }
 }
 

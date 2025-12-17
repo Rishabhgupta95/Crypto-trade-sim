@@ -155,7 +155,7 @@ function CryptoList() {
     }
 
     loadInitialData()
-    const interval = setInterval(updatePrices, 5000)
+    const interval = setInterval(updatePrices, 60000)
 
     return () => {
       isMounted = false

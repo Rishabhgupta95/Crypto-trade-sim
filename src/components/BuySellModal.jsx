@@ -1,23 +1,26 @@
 import { useState, useEffect } from 'react'
-import { getChips, hasEnoughChips, updateChips, addToPortfolio, removeFromPortfolio, getHolding, addTransaction } from '../services/chipsService'
+import { useUser } from '../contexts/UserContext'
+import { getHolding, hasEnoughChips } from '../services/chipsService' // Keep helpers if needed for logic, or rely on context
 import './BuySellModal.css'
 
-function BuySellModal({ crypto, isOpen, onClose, onTransaction }) {
-  const [mode, setMode] = useState('buy') // 'buy' or 'sell'
+function BuySellModal({ crypto, isOpen, onClose, onTransaction, initialMode = 'buy' }) {
+  const [mode, setMode] = useState(initialMode) // 'buy' or 'sell'
   const [amount, setAmount] = useState('')
-  const [chips, setChips] = useState(getChips())
-  const [holding, setHolding] = useState(null)
   const [error, setError] = useState('')
+
+  // Use Global State
+  const { chips, portfolio, buyCrypto, sellCrypto } = useUser()
+
+  // Derived state from context
+  const holding = portfolio.find(p => p.coinId === crypto?.id) || null
 
   useEffect(() => {
     if (isOpen && crypto) {
-      setChips(getChips())
-      const userHolding = getHolding(crypto.id)
-      setHolding(userHolding)
+      setMode(initialMode)
       setAmount('')
       setError('')
     }
-  }, [isOpen, crypto])
+  }, [isOpen, crypto, initialMode])
 
   if (!isOpen || !crypto) return null
 
@@ -42,25 +45,21 @@ function BuySellModal({ crypto, isOpen, onClose, onTransaction }) {
     }
 
     const totalCost = calculateTotal()
-    if (!hasEnoughChips(totalCost)) {
+
+    // Check balance
+    if (chips < totalCost) {
       setError(`Insufficient chips. You need ${totalCost.toFixed(2)} chips but only have ${chips.toFixed(2)}`)
       return
     }
 
-    // Deduct chips
-    const newBalance = updateChips(-totalCost)
-    
-    // Add to portfolio
-    addToPortfolio(crypto, amt, crypto.price)
-    
-    // Add transaction
-    addTransaction('buy', crypto, amt, crypto.price, totalCost)
-    
-    setChips(newBalance)
+    // Execute via Context
+    buyCrypto(crypto, amt, totalCost)
+
     setAmount('')
     setError('')
     onTransaction && onTransaction()
     alert(`Successfully bought ${amt} ${crypto.symbol} for ${totalCost.toFixed(2)} chips!`)
+    onClose() // Auto close on success? Or keep open? Original kept open but cleared. Let's keep open.
   }
 
   const handleSell = () => {
@@ -76,27 +75,19 @@ function BuySellModal({ crypto, isOpen, onClose, onTransaction }) {
     }
 
     const totalValue = amt * crypto.price
-    const entryValue = holding.entryPrice * amt
-    const profit = totalValue - entryValue
 
-    // Add chips (profit/loss included)
-    const newBalance = updateChips(totalValue)
-    
-    // Remove from portfolio
-    removeFromPortfolio(crypto.id, amt)
-    
-    // Add transaction
-    addTransaction('sell', crypto, amt, crypto.price, totalValue, profit)
-    
-    setChips(newBalance)
+    // Execute via Context
+    const profit = sellCrypto(crypto, amt, totalValue, holding)
+
     setAmount('')
     setError('')
     onTransaction && onTransaction()
-    
-    const profitText = profit >= 0 
-      ? `Profit: +${profit.toFixed(2)} chips` 
+
+    const profitText = profit >= 0
+      ? `Profit: +${profit.toFixed(2)} chips`
       : `Loss: ${profit.toFixed(2)} chips`
     alert(`Successfully sold ${amt} ${crypto.symbol} for ${totalValue.toFixed(2)} chips! ${profitText}`)
+    onClose()
   }
 
   const handleMax = () => {
@@ -134,13 +125,13 @@ function BuySellModal({ crypto, isOpen, onClose, onTransaction }) {
         </div>
 
         <div className="modal-tabs">
-          <button 
+          <button
             className={`tab-button ${mode === 'buy' ? 'active' : ''}`}
             onClick={() => setMode('buy')}
           >
             Buy
           </button>
-          <button 
+          <button
             className={`tab-button ${mode === 'sell' ? 'active' : ''}`}
             onClick={() => setMode('sell')}
             disabled={!holding || holding.amount === 0}
@@ -201,13 +192,13 @@ function BuySellModal({ crypto, isOpen, onClose, onTransaction }) {
           {error && <div className="error-message">{error}</div>}
 
           <div className="modal-actions">
-            <button 
+            <button
               className={`action-button ${mode}`}
               onClick={mode === 'buy' ? handleBuy : handleSell}
             >
               {mode === 'buy' ? 'Buy' : 'Sell'} {crypto.symbol}
             </button>
-            <button 
+            <button
               className="action-button chart-button"
               onClick={openTradingView}
             >

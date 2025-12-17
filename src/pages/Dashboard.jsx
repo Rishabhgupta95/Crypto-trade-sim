@@ -1,92 +1,67 @@
+import { fetchNews, fetchCryptoDetails, fetchCryptoList, formatNumber } from '../services/cryptoApi' // Removed unused imports
+import { formatTimeAgo } from '../services/chipsService'
+import { useModal } from '../contexts/ModalContext'
 import { useState, useEffect } from 'react'
-import { fetchMultipleCrypto, formatNumber } from '../services/cryptoApi'
-import { getChips, getPortfolio, getTransactions, formatTimeAgo } from '../services/chipsService'
+import { useUser } from '../contexts/UserContext'
+import { usePortfolioValues } from '../hooks/usePortfolioValues'
 import './Dashboard.css'
 
 function Dashboard({ userInfo }) {
-  const [loading, setLoading] = useState(true)
-  const [topHoldings, setTopHoldings] = useState([])
-  const [portfolioValue, setPortfolioValue] = useState(0)
-  const [totalProfit, setTotalProfit] = useState(0)
-  const [profitPercentage, setProfitPercentage] = useState(0)
-  const [chips, setChips] = useState(getChips())
-  const [recentTransactions, setRecentTransactions] = useState([])
-  const [apiError, setApiError] = useState(null)
+  const { openModal } = useModal()
+  const [news, setNews] = useState([])
+  const [marketWatch, setMarketWatch] = useState({ high: [], low: [] })
+
+  // Use Global State & Hook
+  const { chips, portfolio, transactions } = useUser()
+  const {
+    holdings: topHoldings,
+    totalValue: portfolioValue,
+    totalProfit,
+    totalProfitPercent: profitPercentage,
+    loading,
+    error: apiError
+  } = usePortfolioValues(portfolio)
+
+  const recentTransactions = transactions.slice(0, 5).map((t) => ({
+    ...t,
+    time: formatTimeAgo(t.timestamp),
+  }))
 
   useEffect(() => {
-    const loadDashboardData = async () => {
+    const loadExtraData = async () => {
       try {
-        setLoading(true)
-        setApiError(null)
-        const portfolio = getPortfolio()
-        setChips(getChips())
-        
-        if (portfolio.length === 0) {
-          setTopHoldings([])
-          setPortfolioValue(0)
-          setTotalProfit(0)
-          setProfitPercentage(0)
-          setLoading(false)
-          return
-        }
+        // Load news
+        const newsData = await fetchNews()
+        setNews(newsData.slice(0, 5))
 
-        const coinIds = portfolio.map((p) => p.coinId)
-        const cryptoData = await fetchMultipleCrypto(coinIds)
+        // Load Market Watch Data (Top 50)
+        const marketData = await fetchCryptoList(1, 50)
+        const highs = []
+        const lows = []
 
-        // Calculate holdings with current prices
-        const holdings = cryptoData.map((crypto) => {
-          const holding = portfolio.find((h) => h.coinId === crypto.id)
-          if (!holding) return null
-          
-          const currentValue = crypto.price * holding.amount
-          const entryValue = holding.entryPrice * holding.amount
-          const profit = currentValue - entryValue
-          const profitPercent = ((crypto.price - holding.entryPrice) / holding.entryPrice) * 100
+        marketData.forEach(coin => {
+          if (coin.high24h && coin.low24h && coin.high24h !== coin.low24h) {
+            const range = coin.high24h - coin.low24h
+            const position = (coin.price - coin.low24h) / range
 
-          return {
-            name: crypto.name,
-            symbol: crypto.symbol,
-            amount: holding.amount,
-            value: currentValue,
-            change: profitPercent,
-            price: crypto.price,
-            entryPrice: holding.entryPrice,
-            profit: profit,
-            image: crypto.image,
+            if (position > 0.9) highs.push(coin)
+            if (position < 0.1) lows.push(coin)
           }
-        }).filter(Boolean)
+        })
 
-        setTopHoldings(holdings)
+        setMarketWatch({
+          high: highs.slice(0, 5),
+          low: lows.slice(0, 5)
+        })
 
-        // Calculate portfolio totals
-        const totalValue = holdings.reduce((sum, h) => sum + h.value, 0)
-        const totalEntryValue = holdings.reduce((sum, h) => sum + h.entryPrice * h.amount, 0)
-        const totalProfitAmount = totalValue - totalEntryValue
-        const totalProfitPercent = totalEntryValue > 0 ? (totalProfitAmount / totalEntryValue) * 100 : 0
-
-        setPortfolioValue(totalValue)
-        setTotalProfit(totalProfitAmount)
-        setProfitPercentage(totalProfitPercent)
-
-        // Load recent transactions
-        const transactions = getTransactions()
-        const formattedTransactions = transactions.slice(0, 5).map((t) => ({
-          ...t,
-          time: formatTimeAgo(t.timestamp),
-        }))
-        setRecentTransactions(formattedTransactions)
       } catch (error) {
-        console.error('Error loading dashboard data:', error)
-        setApiError('Unable to reach live market data right now. Showing last known values.')
-      } finally {
-        setLoading(false)
+        console.error('Error loading extra dashboard data:', error)
       }
     }
 
-    loadDashboardData()
-    
-    // Refresh data every 10 seconds to stay within API limits
-    const interval = setInterval(loadDashboardData, 10000)
+    loadExtraData()
+    // Refresh news/market watch every 2 minutes separate from portfolio
+    const interval = setInterval(loadExtraData, 20000)
     return () => clearInterval(interval)
   }, [])
 
@@ -156,8 +131,34 @@ function Dashboard({ userInfo }) {
                     )}
                     <div>
                       <div className="holding-name">
-                        <strong>{holding.name}</strong>
-                        <span className="holding-symbol">{holding.symbol}</span>
+                        <strong
+                          className="clickable-crypto"
+                          onClick={() => openModal({
+                            // Added: Pass correct ID for modal
+                            id: holding.id || holding.symbol.toLowerCase(),
+                            name: holding.name,
+                            symbol: holding.symbol,
+                            price: holding.price,
+                            change: holding.change24h, // Fix: Use market 24h change, not portfolio P/L
+                            image: holding.image
+                          })}
+                        >
+                          {holding.name}
+                        </strong>
+                        <span
+                          className="holding-symbol clickable-crypto"
+                          onClick={() => openModal({
+                            // Added: Pass correct ID for modal
+                            id: holding.id || holding.symbol.toLowerCase(),
+                            name: holding.name,
+                            symbol: holding.symbol,
+                            price: holding.price,
+                            change: holding.change24h, // Fix: Use market 24h change, not portfolio P/L
+                            image: holding.image
+                          })}
+                        >
+                          {holding.symbol}
+                        </span>
                       </div>
                       <div className="holding-amount">{holding.amount} {holding.symbol}</div>
                     </div>
@@ -166,6 +167,9 @@ function Dashboard({ userInfo }) {
                     <div>${holding.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                     <div className={`holding-change ${holding.change >= 0 ? 'positive' : 'negative'}`}>
                       {holding.change >= 0 ? '+' : ''}{holding.change.toFixed(2)}%
+                    </div>
+                    <div className="holding-24h">
+                      24h: H:${holding.high24h.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L:${holding.low24h.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                   </div>
                 </div>
@@ -188,7 +192,30 @@ function Dashboard({ userInfo }) {
                     <div className={`transaction-type ${transaction.type}`}>
                       {transaction.type === 'buy' ? 'Buy' : 'Sell'}
                     </div>
-                    <div className="transaction-crypto">{transaction.crypto}</div>
+                    {transaction.coinId ? (
+                      <div
+                        className="transaction-crypto clickable-crypto"
+                        onClick={async () => {
+                          try {
+                            const details = await fetchCryptoDetails(transaction.coinId)
+                            openModal({
+                              id: details.id,
+                              name: details.name,
+                              symbol: details.symbol,
+                              price: details.price,
+                              change: details.change, // key for BuySellModal visual
+                              image: details.image
+                            })
+                          } catch (e) {
+                            console.error('Failed to load crypto details', e)
+                          }
+                        }}
+                      >
+                        <strong>{transaction.crypto}</strong>
+                      </div>
+                    ) : (
+                      <div className="transaction-crypto">{transaction.crypto}</div>
+                    )}
                     <div className="transaction-time">{transaction.time}</div>
                   </div>
                   <div className="transaction-details">
@@ -200,6 +227,98 @@ function Dashboard({ userInfo }) {
                       </div>
                     )}
                   </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="section">
+          <h3>24h Market Watch</h3>
+          <div className="market-watch-container">
+            <div className="market-watch-card">
+              <div className="market-watch-header">
+                <h4>🚀 Near 24h High</h4>
+                <span className="market-watch-subtitle">Trading near daily peak</span>
+              </div>
+              {marketWatch.high.length === 0 ? (
+                <p className="no-data-text">No coins near 24h high right now</p>
+              ) : (
+                <div className="market-watch-list">
+                  {marketWatch.high.map(coin => (
+                    <div
+                      key={coin.id}
+                      className="market-watch-item clickable-crypto"
+                      onClick={() => openModal(coin)}
+                    >
+                      <div className="mw-coin-info">
+                        <img src={coin.image} alt={coin.name} />
+                        <span className="mw-symbol">{coin.symbol}</span>
+                      </div>
+                      <div className="mw-price-info">
+                        <span className="mw-price">${formatNumber(coin.price)}</span>
+                        <span className="mw-change positive">+{coin.change.toFixed(2)}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="market-watch-card">
+              <div className="market-watch-header">
+                <h4>📉 Near 24h Low</h4>
+                <span className="market-watch-subtitle">Trading near daily bottom</span>
+              </div>
+              {marketWatch.low.length === 0 ? (
+                <p className="no-data-text">No coins near 24h low right now</p>
+              ) : (
+                <div className="market-watch-list">
+                  {marketWatch.low.map(coin => (
+                    <div
+                      key={coin.id}
+                      className="market-watch-item clickable-crypto"
+                      onClick={() => openModal(coin)}
+                    >
+                      <div className="mw-coin-info">
+                        <img src={coin.image} alt={coin.name} />
+                        <span className="mw-symbol">{coin.symbol}</span>
+                      </div>
+                      <div className="mw-price-info">
+                        <span className="mw-price">${formatNumber(coin.price)}</span>
+                        <span className="mw-change negative">{coin.change.toFixed(2)}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="section">
+          <h3>Crypto News</h3>
+          {news.length === 0 ? (
+            <div className="no-news">
+              <p>No news available at the moment.</p>
+            </div>
+          ) : (
+            <div className="news-list">
+              {news.map((article) => (
+                <div key={article.id} className="news-item">
+                  <div className="news-content">
+                    <div className="news-title">
+                      <a href={article.url} target="_blank" rel="noopener noreferrer">
+                        {article.title}
+                      </a>
+                    </div>
+                    <div className="news-source">
+                      {article.source} • {new Date(article.published_on * 1000).toLocaleDateString()}
+                    </div>
+                  </div>
+                  {article.imageurl && (
+                    <img src={article.imageurl} alt={article.title} className="news-image" />
+                  )}
                 </div>
               ))}
             </div>

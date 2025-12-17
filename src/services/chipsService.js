@@ -88,10 +88,12 @@ export const getHolding = (coinId) => {
 }
 
 // Transaction History
+// Transaction History
 export const addTransaction = (type, crypto, amount, price, totalValue, profit = 0) => {
   const transactions = getTransactions()
   const newTransaction = {
     id: Date.now(),
+    coinId: crypto.id,
     type, // 'buy' or 'sell'
     crypto: crypto.name,
     symbol: crypto.symbol,
@@ -101,6 +103,7 @@ export const addTransaction = (type, crypto, amount, price, totalValue, profit =
     profit,
     timestamp: new Date().toISOString(),
     time: 'Just now',
+    image: crypto.image,
   }
   
   transactions.unshift(newTransaction)
